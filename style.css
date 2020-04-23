@@ -1,0 +1,17 @@
+h1 {
+    color: #575757; /* Цвет заголовка */
+    font-size: 48pt; /* Размер шрифта в пунктах */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, Times, serif; /* Семейство шрифтов */
+    font-weight: normal; /* Нормальное начертание текста  */
+  }
+  p {
+    text-align: center; /* Выравнивание по ширине */
+    color: #d8d8d8; /* Цвет заголовка */
+    font-size: 24pt; /* Размер шрифта в пунктах */
+  }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, Times, serif; /* Семейство шрифтов */
+    font-size: 11pt; /* Размер основного шрифта в пунктах  */
+    background-color: #f3f3f3; /* Цвет фона веб-страницы */
+    color: #333; /* Цвет основного текста */ 
+  }
