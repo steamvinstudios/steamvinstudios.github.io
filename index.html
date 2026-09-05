@@ -1,784 +1,1705 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steamvin Studios — Bifröst Liquid Glass Edition</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            --bg-base: #f4f5f9;
-            --text-main: #111215;
-            --text-sub: #585a66;
-            --accent-blue: #0071e3;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no" />
+  <title>Liquid Glass Tetris Ultra — Fixed &amp; Enhanced</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #010206;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: #fff;
+    }
+    #webgl-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 1;
+    }
+    #bg-canvas {
+      display: none;
+    }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            scroll-behavior: smooth;
-        }
+    /* Кино-полосы Letterbox */
+    .cinema-bar {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: #000;
+      z-index: 8;
+      transition: height 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    #cinema-top { top: 0; }
+    #cinema-bottom { bottom: 0; }
+    body.cinematic-mode #cinema-top,
+    body.cinematic-mode #cinema-bottom {
+      height: 7.5%;
+    }
 
-        body {
-            background-color: var(--bg-base);
-            color: var(--text-main);
-            overflow-x: hidden;
-            min-height: 100vh;
-        }
+    /* Бейдж режима замедления времени */
+    .chrono-badge {
+      position: absolute;
+      top: 9%;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: rgba(8, 14, 30, 0.75);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: #38bdf8;
+      box-shadow: 0 0 30px rgba(56, 189, 248, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.5s ease;
+      z-index: 9;
+    }
+    body.cinematic-mode .chrono-badge {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
-        /* WebGL Холст с Биврёстом и оптикой */
-        #gl-canvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-            pointer-events: none;
-        }
+    /* Интерфейс пользователя */
+    .ui-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px;
+      transition: opacity 0.4s ease;
+    }
+    body.cinematic-mode .ui-layer {
+      opacity: 0.25;
+    }
+    .interactive {
+      pointer-events: auto;
+    }
 
-        /* Слой интерфейса */
-        .content-layer {
-            position: relative;
-            z-index: 2;
-            max-width: 1180px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
+    .glass-card {
+      background: rgba(6, 10, 24, 0.55);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 16px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(255, 255, 255, 0.05);
+      padding: 14px 22px;
+    }
 
-        header {
-            position: sticky;
-            top: 20px;
-            display: flex;
-            justify-content: center;
-            margin-bottom: 50px;
-            z-index: 100;
-        }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .title-block h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: 2.5px;
+      background: linear-gradient(135deg, #38bdf8, #c084fc, #f43f5e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .title-block p {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      letter-spacing: 1px;
+    }
 
-        .liquid-element {
-            background: transparent;
-            position: relative;
-        }
+    .stats-grid {
+      display: flex;
+      gap: 12px;
+    }
+    .stat-box {
+      text-align: center;
+      min-width: 85px;
+    }
+    .stat-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #64748b;
+      margin-bottom: 2px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: #38bdf8;
+      text-shadow: 0 0 16px rgba(56, 189, 248, 0.5);
+    }
 
-        .nav-dock {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 32px;
-            width: 100%;
-            max-width: 900px;
-            height: 58px;
-            border-radius: 29px;
-        }
+    /* Панель оптики */
+    .controls-panel {
+      position: absolute;
+      top: 105px;
+      right: 24px;
+      width: 260px;
+      font-size: 0.8rem;
+    }
+    .panel-header {
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: #e879f9;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+    }
+    .slider-row {
+      margin-bottom: 10px;
+    }
+    .slider-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+    input[type=range] {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.2);
+      outline: none;
+      -webkit-appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px #38bdf8;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    button.btn {
+      flex: 1;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    button.btn:hover {
+      background: rgba(56, 189, 248, 0.25);
+      border-color: #38bdf8;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+    }
 
-        .logo {
-            font-size: 1.1rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            text-transform: uppercase;
-            color: #111215;
-            text-shadow: 0 2px 8px rgba(255,255,255,0.8);
-        }
+    .footer-hints {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+    .keys-badge {
+      display: inline-block;
+      padding: 2px 7px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      color: #fff;
+      font-family: monospace;
+      font-size: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      margin: 0 2px;
+    }
 
-        nav a {
-            color: var(--text-sub);
-            text-decoration: none;
-            margin-left: 24px;
-            font-size: 0.92rem;
-            font-weight: 600;
-            transition: color 0.2s ease;
-        }
+    .mobile-controls {
+      display: none;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 12px;
+      pointer-events: auto;
+    }
+    .m-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.09);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+    .m-btn:active {
+      background: rgba(56, 189, 248, 0.4);
+      transform: scale(0.94);
+    }
 
-        nav a:hover {
-            color: #000;
-        }
+    .modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(2, 4, 10, 0.88);
+      backdrop-filter: blur(24px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: auto;
+    }
+    .modal-card {
+      text-align: center;
+      max-width: 360px;
+      width: 90%;
+      padding: 34px 26px;
+    }
+    .modal-card h2 {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      color: #f43f5e;
+      text-shadow: 0 0 24px rgba(244, 63, 94, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+    }
+    .final-score {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+    .final-score span {
+      color: #38bdf8;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+    .play-btn {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #38bdf8, #c084fc);
+      border: none;
+      border-radius: 12px;
+      color: #030712;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      transition: all 0.2s;
+    }
+    .play-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-2px);
+      box-shadow: 0 0 24px rgba(56, 189, 248, 0.6);
+    }
 
-        /* Hero секция */
-        .hero {
-            padding: 50px 0 70px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
+    @media (max-width: 768px) {
+      .controls-panel { display: none; }
+      .mobile-controls { display: flex; }
+      .title-block h1 { font-size: 1.2rem; }
+      .stat-value { font-size: 1.1rem; }
+      .footer-hints {
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+      }
+    }
+  </style>
 
-        .apple-focus-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            padding: 8px 24px;
-            height: 44px;
-            border-radius: 22px;
-            font-size: 0.92rem;
-            font-weight: 700;
-            margin-bottom: 28px;
-            cursor: pointer;
-            user-select: none;
-            color: #111215;
-        }
-
-        .apple-focus-pill svg {
-            width: 17px;
-            height: 17px;
-            fill: #111215;
-        }
-
-        .hero h1 {
-            font-size: clamp(2.4rem, 5.5vw, 4.4rem);
-            font-weight: 800;
-            line-height: 1.12;
-            letter-spacing: -1.5px;
-            margin-bottom: 20px;
-            max-width: 880px;
-            color: #111215;
-            text-shadow: 0 4px 20px rgba(255,255,255,0.9);
-        }
-
-        .hero p {
-            font-size: 1.18rem;
-            color: var(--text-sub);
-            max-width: 640px;
-            line-height: 1.6;
-            margin-bottom: 36px;
-            text-shadow: 0 2px 10px rgba(255,255,255,0.9);
-        }
-
-        /* Apple Action Lenses */
-        .apple-icons-dock {
-            display: flex;
-            gap: 18px;
-            margin-bottom: 50px;
-            justify-content: center;
-        }
-
-        .lens-circle {
-            width: 62px;
-            height: 62px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.45rem;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .lens-circle:hover {
-            transform: scale(1.08);
-        }
-
-        /* Сетка карточек */
-        .section-title {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-
-        .section-title h2 {
-            font-size: 2.2rem;
-            font-weight: 800;
-            letter-spacing: -0.8px;
-            margin-bottom: 8px;
-            color: #111215;
-        }
-
-        .section-title p {
-            color: var(--text-sub);
-            font-size: 1.05rem;
-        }
-
-        .grid-3 {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 26px;
-            margin-bottom: 90px;
-        }
-
-        .card {
-            border-radius: 28px;
-            padding: 38px 30px;
-            min-height: 240px;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-        }
-
-        .card-icon {
-            font-size: 2.1rem;
-            margin-bottom: 16px;
-        }
-
-        .card h3 {
-            font-size: 1.35rem;
-            font-weight: 750;
-            margin-bottom: 10px;
-            letter-spacing: -0.4px;
-            color: #111215;
-        }
-
-        .card p {
-            color: var(--text-sub);
-            font-size: 0.96rem;
-            line-height: 1.55;
-            font-weight: 500;
-        }
-
-        /* Проекты */
-        .project-tag {
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 800;
-            color: var(--accent-blue);
-            margin-bottom: 8px;
-            display: block;
-        }
-
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 20px;
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: #059669;
-        }
-
-        .status-pill::before {
-            content: '';
-            width: 7px;
-            height: 7px;
-            background: #059669;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #059669;
-        }
-
-        /* Контакты */
-        .contacts-bar {
-            border-radius: 34px;
-            padding: 46px 30px;
-            text-align: center;
-            margin-bottom: 80px;
-        }
-
-        .contacts-bar h2 {
-            font-size: 2.1rem;
-            font-weight: 800;
-            letter-spacing: -0.6px;
-            color: #111215;
-        }
-
-        .social-wrap {
-            display: flex;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 14px;
-            margin-top: 28px;
-        }
-
-        .social-item {
-            padding: 10px 24px;
-            height: 46px;
-            border-radius: 23px;
-            color: #111215;
-            text-decoration: none;
-            font-size: 0.94rem;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            transition: transform 0.2s ease;
-        }
-
-        .social-item:hover {
-            transform: translateY(-2px);
-        }
-
-        footer {
-            text-align: center;
-            padding: 30px 0 50px;
-            color: var(--text-sub);
-            font-size: 0.88rem;
-            font-weight: 500;
-        }
-
-        @media (max-width: 768px) {
-            nav { display: none; }
-            .grid-3 { grid-template-columns: 1fr; }
-        }
-    </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.169.0/examples/jsm/"
+    }
+  }
+  </script>
 </head>
 <body>
+  <div class="cinema-bar" id="cinema-top"></div>
+  <div class="cinema-bar" id="cinema-bottom"></div>
+  <div class="chrono-badge">✦ HYPER-CLEAR // 8.0S CHRONO-DILATION ✦</div>
 
-    <!-- WebGL полотно с мостом Биврёст -->
-    <canvas id="gl-canvas"></canvas>
+  <canvas id="webgl-canvas"></canvas>
+  <canvas id="bg-canvas" width="2048" height="1024"></canvas>
 
-    <div class="content-layer">
-        
-        <header>
-            <div class="nav-dock liquid-element" data-radius="29" data-bevel="16" data-ior="16.0">
-                <div class="logo">Steamvin Studios</div>
-                <nav>
-                    <a href="#services">Экспертиза</a>
-                    <a href="#projects">Проекты</a>
-                    <a href="#contacts">Контакты</a>
-                </nav>
-            </div>
-        </header>
+  <div class="ui-layer">
+    <header>
+      <div class="title-block glass-card interactive">
+        <h1>PRISM // FLOW</h1>
+        <p>SMOOTHDAMP KINEMATICS &amp; PBR LIQUID GLASS</p>
+      </div>
+      <div class="stats-grid interactive">
+        <div class="glass-card stat-box">
+          <div class="stat-label">СЧЕТ</div>
+          <div class="stat-value" id="score-el">0</div>
+        </div>
+        <div class="glass-card stat-box">
+          <div class="stat-label">ЛИНИИ</div>
+          <div class="stat-value" id="lines-el">0</div>
+        </div>
+        <div class="glass-card stat-box">
+          <div class="stat-label">УРОВЕНЬ</div>
+          <div class="stat-value" id="level-el">1</div>
+        </div>
+      </div>
+    </header>
 
-        <section class="hero">
-            <div class="apple-focus-pill liquid-element" data-radius="22" data-bevel="18" data-ior="18.0">
-                <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
-                <span>Bifröst Energy Stream</span>
-            </div>
-
-            <h1>Оптический мост Биврёст <br>в реальном времени</h1>
-            <p>Десятки четких спектральных лазерных нитей несутся через экран, огибая и кристально преломляясь на гранях стекла.</p>
-
-            <div class="apple-icons-dock">
-                <div class="lens-circle liquid-element" data-radius="31" data-bevel="22" data-ior="22.0">⚡</div>
-                <div class="lens-circle liquid-element" data-radius="31" data-bevel="22" data-ior="22.0">🌌</div>
-                <div class="lens-circle liquid-element" data-radius="31" data-bevel="22" data-ior="22.0">🔮</div>
-                <div class="lens-circle liquid-element" data-radius="31" data-bevel="22" data-ior="22.0">⊞</div>
-            </div>
-        </section>
-
-        <!-- Направления -->
-        <section id="services">
-            <div class="section-title">
-                <h2>Наши компетенции</h2>
-                <p>Оцените, как каждая отдельная цветная нить изгибается на кромке линзы</p>
-            </div>
-            <div class="grid-3">
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <div class="card-icon">🎮</div>
-                        <h3>Game Production</h3>
-                        <p>Полный цикл разработки игр: механики, дизайн уровней, кастомные шейдеры материалов и оптимизация на движках нового поколения.</p>
-                    </div>
-                </div>
-
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <div class="card-icon">🌐</div>
-                        <h3>Spatial & WebGL</h3>
-                        <p>Интерактивные 3D веб-приложения, физика оптических преломлений и интерфейсы стандарта Apple visionOS.</p>
-                    </div>
-                </div>
-
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <div class="card-icon">✨</div>
-                        <h3>CGI & Visuals</h3>
-                        <p>Создание атмосферных визуальных концептов, 3D-моделирование, кинематографичный рендеринг и пространственные спецэффекты.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Проекты -->
-        <section id="projects">
-            <div class="section-title">
-                <h2>Флагманские проекты</h2>
-                <p>Безупречная резкость и динамическое преломление лучей</p>
-            </div>
-            <div class="grid-3">
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <span class="project-tag">Cyberpunk / Unreal</span>
-                        <h3>Project: Aether Shift</h3>
-                        <p>Атмосферный sci-fi экшен с упором на физику взаимодействия и динамическое освещение.</p>
-                    </div>
-                    <div class="status-pill">В разработке</div>
-                </div>
-
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <span class="project-tag">Interactive Engine</span>
-                        <h3>Steamvin Core 2.0</h3>
-                        <p>Модульная система для генерации адаптивных веб-интерфейсов и симуляций в реальном времени.</p>
-                    </div>
-                    <div class="status-pill">Бета-тест</div>
-                </div>
-
-                <div class="card liquid-element" data-radius="28" data-bevel="22" data-ior="16.0">
-                    <div>
-                        <span class="project-tag">Audio Visuals</span>
-                        <h3>Prism Resonance</h3>
-                        <p>Генеративный 3D-аудиовизуализатор прямо в браузере с процедурным звуковым окружением.</p>
-                    </div>
-                    <div class="status-pill">Релиз</div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Контакты -->
-        <section id="contacts">
-            <div class="contacts-bar liquid-element" data-radius="34" data-bevel="24" data-ior="18.0">
-                <h2>Создадим что-то выдающееся вместе</h2>
-                <p style="color: var(--text-sub); margin-top: 8px; font-size: 1.05rem;">Открыты к партнерству, разработке и креативным задачам</p>
-                <div class="social-wrap">
-                    <a href="#" class="social-item liquid-element" data-radius="23" data-bevel="16" data-ior="16.0">Telegram: @steamvin</a>
-                    <a href="#" class="social-item liquid-element" data-radius="23" data-bevel="16" data-ior="16.0">Discord Hub</a>
-                    <a href="#" class="social-item liquid-element" data-radius="23" data-bevel="16" data-ior="16.0">GitHub</a>
-                    <a href="mailto:hello@steamvin.studio" class="social-item liquid-element" data-radius="23" data-bevel="16" data-ior="16.0">hello@steamvin.studio</a>
-                </div>
-            </div>
-        </section>
-
+    <div class="glass-card controls-panel interactive">
+      <div class="panel-header">
+        <span>Оптика Liquid Glass</span>
+        <span style="color: #38bdf8;">✦ 60 FPS</span>
+      </div>
+      <div class="slider-row">
+        <div class="slider-info">
+          <span>Дисперсия (Dispersion)</span>
+          <span id="disp-val">1.00</span>
+        </div>
+        <input type="range" id="dispersion-slider" min="0.0" max="1.0" step="0.02" value="1.00">
+      </div>
+      <div class="slider-row">
+        <div class="slider-info">
+          <span>Преломление (IOR)</span>
+          <span id="ior-val">1.65</span>
+        </div>
+        <input type="range" id="ior-slider" min="1.1" max="2.4" step="0.02" value="1.65">
+      </div>
+      <div class="slider-row">
+        <div class="slider-info">
+          <span>Толщина слоя</span>
+          <span id="thick-val">3.5</span>
+        </div>
+        <input type="range" id="thick-slider" min="0.5" max="4.5" step="0.1" value="3.5">
+      </div>
+      <div class="btn-group">
+        <button class="btn" id="reset-cam-btn">Сброс угла</button>
+        <button class="btn" id="sound-toggle-btn">Звук: ВКЛ</button>
+      </div>
     </div>
 
-    <footer>
-        <p>© 2026 Steamvin Studios. Bifröst Optical Refraction Engine.</p>
-    </footer>
+    <div class="footer-hints">
+      <div class="glass-card interactive">
+        <span>🖱️ <b>Вращение поля:</b> Зажмите ЛКМ и вращайте мышью в любой момент игры</span>
+      </div>
+      <div class="glass-card interactive">
+        <span class="keys-badge">←</span><span class="keys-badge">→</span> Перемещение
+        <span class="keys-badge">↑</span> Вращение
+        <span class="keys-badge">↓</span> Спуск
+        <span class="keys-badge">Пробел</span> Сброс
+        <span class="keys-badge">C</span> Запас
+        <span class="keys-badge">P</span> Пауза
+      </div>
+    </div>
 
-    <!-- ШЕЙДЕРНЫЙ ДВИЖОК МОСТА БИВРЁСТ -->
-    <script>
-        const canvas = document.getElementById('gl-canvas');
-        const gl = canvas.getContext('webgl', { alpha: false, antialias: true });
+    <div class="mobile-controls interactive">
+      <button class="m-btn" id="m-hold">H</button>
+      <button class="m-btn" id="m-left">◀</button>
+      <button class="m-btn" id="m-rot">↻</button>
+      <button class="m-btn" id="m-right">▶</button>
+      <button class="m-btn" id="m-down">▼</button>
+      <button class="m-btn" id="m-drop">⚡</button>
+    </div>
+  </div>
 
-        const vsSource = `
-            attribute vec2 a_pos;
-            void main() {
-                gl_Position = vec4(a_pos, 0.0, 1.0);
-            }
-        `;
+  <div class="modal-overlay" id="gameover-modal">
+    <div class="glass-card modal-card">
+      <h2>GAME OVER</h2>
+      <div class="final-score">Счёт за раунд: <br><span id="final-score-val">0</span></div>
+      <button class="play-btn" id="restart-btn">ИГРАТЬ СНОВА</button>
+    </div>
+  </div>
 
-        const fsSource = `
-            precision highp float;
-            uniform vec2 u_resolution;
-            uniform float u_dpr;
-            uniform float u_time;
-            uniform vec2 u_sun;
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
-            uniform vec4 u_rects[12];
-            uniform vec3 u_params[12]; // x: radius, y: bevel, z: ior
-            uniform int u_count;
+    /* ==========================================================
+       1. БЕЗОПАСНАЯ И ЧИСТАЯ МАТЕМАТИКА SMOOTHDAMP (100% БЕЗ СБОЕВ)
+       ========================================================== */
+    class SmoothSpringVec3 {
+      constructor(smoothTime = 0.45, maxSpeed = 70.0) {
+        this.current = new THREE.Vector3();
+        this.target = new THREE.Vector3();
+        this.velocity = new THREE.Vector3();
+        this.smoothTime = smoothTime;
+        this.maxSpeed = maxSpeed;
+      }
+      reset(pos) {
+        this.current.copy(pos);
+        this.target.copy(pos);
+        this.velocity.set(0, 0, 0);
+      }
+      update(dt) {
+        const omega = 2.0 / Math.max(0.0001, this.smoothTime);
+        const x = omega * dt;
+        const exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
 
-            float sdBox(vec2 p, vec2 b, float r) {
-                vec2 q = abs(p) - b + vec2(r);
-                return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-            }
+        const changeX = this.current.x - this.target.x;
+        const changeY = this.current.y - this.target.y;
+        const changeZ = this.current.z - this.target.z;
 
-            // Цветовая функция спектра радуги Биврёста (косинусный градиент)
-            vec3 spectralColor(float t) {
-                // Плавная насыщенная радуга: Красный -> Оранжевый -> Желтый -> Зеленый -> Циан -> Синий -> Фиолетовый -> Маджента
-                vec3 a = vec3(0.5, 0.5, 0.5);
-                vec3 b = vec3(0.5, 0.5, 0.5);
-                vec3 c = vec3(1.0, 1.0, 1.0);
-                vec3 d = vec3(0.0, 0.33, 0.67);
-                return a + b * cos(6.28318 * (c * t + d));
-            }
-
-            // Рендер моста Биврёст (множество четких цветных нитей) + сферы + сетка
-            vec3 getScene(vec2 p) {
-                vec3 col = vec3(0.96, 0.965, 0.98);
-
-                // 1. Тонкая геометрическая сетка
-                vec2 g = abs(fract(p / 45.0) - 0.5) * 45.0;
-                float grid = smoothstep(1.5, 0.0, min(g.x, g.y));
-                col -= vec3(0.10, 0.11, 0.13) * grid;
-
-                // ==========================================
-                // ГЛАВНЫЙ МОСТ БИВРЁСТ (BIFRÖST STREAM 1)
-                // ==========================================
-                // Поворачиваем координаты по диагонали
-                float angle1 = -0.42; // Угол наклона моста (~24 град)
-                mat2 rot1 = mat2(cos(angle1), -sin(angle1), sin(angle1), cos(angle1));
-                vec2 bp1 = rot1 * (p - u_resolution * vec2(0.5, 0.5));
-
-                // Волновые колебания моста в пространстве
-                float wave1 = sin(bp1.x * 0.0035 + u_time * 1.6) * 55.0 
-                            + cos(bp1.x * 0.008 - u_time * 2.2) * 25.0;
-                float distBridge1 = bp1.y - wave1;
-                float bridgeWidth1 = 180.0; // Ширина полосы моста
-
-                if (abs(distBridge1) < bridgeWidth1) {
-                    float normY = distBridge1 / bridgeWidth1; // от -1.0 до +1.0
-                    float spectralCoord = normY * 0.5 + 0.5;  // от 0.0 до 1.0
-
-                    // Насыщенный цвет полосы
-                    vec3 rainbowCol = spectralColor(spectralCoord * 1.4 + u_time * 0.08);
-
-                    // СВЕРХЧЕТКИЕ ЛАЗЕРНЫЕ СТРУНЫ:
-                    // Делим мост на 28 отдельных резких параллельных нитей
-                    float cordDensity = distBridge1 * 0.16;
-                    float cordFrac = abs(fract(cordDensity) - 0.5) * 2.0;
-                    // Антиалиасинг резкой линии шириной всего в 1.5px
-                    float cordLine = smoothstep(0.55, 0.12, cordFrac);
-
-                    // Бегущие световые импульсы квантовой энергии вдоль моста
-                    float energyPulse = 0.75 + 0.35 * sin(bp1.x * 0.04 - u_time * 7.5 + distBridge1 * 0.15);
-
-                    // Мягкое угасание по краям моста
-                    float edgeFade = smoothstep(bridgeWidth1, bridgeWidth1 - 12.0, abs(distBridge1));
-
-                    vec3 bifrostCol = rainbowCol * (0.45 + 0.85 * cordLine) * energyPulse;
-                    
-                    // Наложение моста на светлый фон
-                    col = mix(col, bifrostCol, edgeFade * 0.85);
-                }
-
-                // ==========================================
-                // ВТОРИЧНЫЙ ПЕРЕСЕКАЮЩИЙСЯ ЛУЧ (BIFRÖST BEAM 2)
-                // ==========================================
-                float angle2 = 0.65;
-                mat2 rot2 = mat2(cos(angle2), -sin(angle2), sin(angle2), cos(angle2));
-                vec2 bp2 = rot2 * (p - u_resolution * vec2(0.65, 0.45));
-
-                float wave2 = cos(bp2.x * 0.005 - u_time * 1.8) * 40.0;
-                float distBridge2 = bp2.y - wave2;
-                float bridgeWidth2 = 80.0;
-
-                if (abs(distBridge2) < bridgeWidth2) {
-                    float normY2 = distBridge2 / bridgeWidth2;
-                    vec3 rainbowCol2 = spectralColor(normY2 * 0.8 + 0.4 - u_time * 0.12);
-
-                    // 14 четких лазерных струн
-                    float cordDensity2 = distBridge2 * 0.22;
-                    float cordLine2 = smoothstep(0.5, 0.1, abs(fract(cordDensity2) - 0.5) * 2.0);
-                    float energyPulse2 = 0.7 + 0.4 * cos(bp2.x * 0.05 + u_time * 8.0);
-                    float edgeFade2 = smoothstep(bridgeWidth2, bridgeWidth2 - 8.0, abs(distBridge2));
-
-                    vec3 bifrostCol2 = rainbowCol2 * (0.4 + 0.9 * cordLine2) * energyPulse2;
-                    col = mix(col, bifrostCol2, edgeFade2 * 0.75);
-                }
-
-                // 3. Главная коралловая сфера (следует за курсором)
-                float sunDist = length(p - u_sun);
-                float sunR = 150.0;
-                if (sunDist < sunR) {
-                    float t = sunDist / sunR;
-                    vec3 sunCore = mix(vec3(1.0, 0.92, 0.2), vec3(1.0, 0.22, 0.05), smoothstep(0.0, 0.85, t));
-                    sunCore *= (1.0 - t * 0.15);
-                    col = mix(col, sunCore, smoothstep(sunR, sunR - 1.5, sunDist));
-                }
-                col += vec3(1.0, 0.35, 0.05) * exp(-sunDist * 0.015) * 0.4;
-
-                // 4. Сапфировая сфера
-                vec2 sapphirePos = vec2(
-                    u_resolution.x * 0.82 + cos(u_time * 0.4) * 65.0,
-                    u_resolution.y * 0.28 + sin(u_time * 0.5) * 50.0
-                );
-                float sDist = length(p - sapphirePos);
-                float sR = 125.0;
-                if (sDist < sR) {
-                    float ts = sDist / sR;
-                    vec3 sCol = mix(vec3(0.1, 0.85, 1.0), vec3(0.0, 0.3, 0.95), ts);
-                    col = mix(col, sCol, smoothstep(sR, sR - 1.5, sDist));
-                }
-                col += vec3(0.0, 0.45, 1.0) * exp(-sDist * 0.016) * 0.35;
-
-                // 5. Неоново-фиолетовая сфера
-                vec2 purplePos = vec2(
-                    u_resolution.x * 0.16 + sin(u_time * 0.35) * 50.0,
-                    u_resolution.y * 0.75 + cos(u_time * 0.45) * 45.0
-                );
-                float pDist = length(p - purplePos);
-                float pR = 115.0;
-                if (pDist < pR) {
-                    float tp = pDist / pR;
-                    vec3 pCol = mix(vec3(1.0, 0.25, 0.85), vec3(0.45, 0.05, 0.9), tp);
-                    col = mix(col, pCol, smoothstep(pR, pR - 1.5, pDist));
-                }
-                col += vec3(0.7, 0.1, 0.9) * exp(-pDist * 0.018) * 0.3;
-
-                return col;
-            }
-
-            // Мягкий оптический микро-блюр внутри тела стекла
-            vec3 getSceneBlurred(vec2 p) {
-                float b = 1.6;
-                vec3 c = getScene(p) * 0.38;
-                c += getScene(p + vec2(b, 0.0)) * 0.155;
-                c += getScene(p - vec2(b, 0.0)) * 0.155;
-                c += getScene(p + vec2(0.0, b)) * 0.155;
-                c += getScene(p - vec2(0.0, b)) * 0.155;
-                return c;
-            }
-
-            void main() {
-                vec2 p = vec2(gl_FragCoord.x, u_resolution.y * u_dpr - gl_FragCoord.y) / u_dpr;
-
-                vec2 totalOffset = vec2(0.0);
-                float inGlassMask = 0.0;
-                float rimHighlight = 0.0;
-                float shadowRim = 0.0;
-                float chromaticAmount = 0.0;
-
-                for (int i = 0; i < 12; i++) {
-                    if (i >= u_count) break;
-
-                    vec4 r = u_rects[i];
-                    vec3 pars = u_params[i];
-                    float radius = pars.x;
-                    float bevel = pars.y;
-                    float ior = pars.z;
-
-                    vec2 center = r.xy + r.zw * 0.5;
-                    vec2 halfSize = r.zw * 0.5;
-                    vec2 local = p - center;
-
-                    float d = sdBox(local, halfSize, radius);
-
-                    if (d < 0.0) {
-                        float distToEdge = -d;
-                        float edgeAlpha = smoothstep(0.0, 1.2, distToEdge);
-                        inGlassMask = max(inGlassMask, edgeAlpha);
-
-                        vec2 eps = vec2(1.0, 0.0);
-                        vec2 n = normalize(vec2(
-                            sdBox(local + eps.xy, halfSize, radius) - sdBox(local - eps.xy, halfSize, radius),
-                            sdBox(local + eps.yx, halfSize, radius) - sdBox(local - eps.yx, halfSize, radius)
-                        ));
-
-                        // АРОЧНОЕ БЕСШОВНОЕ ПРЕЛОМЛЕНИЕ ЛИНЗЫ
-                        if (distToEdge < bevel) {
-                            float x = distToEdge / bevel;
-                            float arch = sin(x * 3.14159265);
-                            arch = pow(arch, 1.2);
-
-                            vec2 distortion = n * arch * ior;
-                            totalOffset += distortion;
-                            chromaticAmount = max(chromaticAmount, arch * 0.05);
-
-                            // Спекулярный блик по верхней грани
-                            float topLight = max(0.0, -n.y * 0.8 - n.x * 0.2);
-                            rimHighlight += pow(topLight, 4.0) * arch * 0.45;
-
-                            // Теневая кромка снизу
-                            float botShadow = max(0.0, n.y * 0.7);
-                            shadowRim += pow(botShadow, 3.0) * arch * 0.2;
-                        }
-                    }
-                }
-
-                vec3 finalColor;
-
-                if (inGlassMask > 0.0) {
-                    // Хроматическая дисперсия (RGB Split)
-                    vec2 rOff = totalOffset * (1.0 + chromaticAmount);
-                    vec2 gOff = totalOffset;
-                    vec2 bOff = totalOffset * (1.0 - chromaticAmount);
-
-                    float rCh = getSceneBlurred(p + rOff).r;
-                    float gCh = getSceneBlurred(p + gOff).g;
-                    float bCh = getSceneBlurred(p + bOff).b;
-                    
-                    vec3 refracted = vec3(rCh, gCh, bCh);
-                    
-                    // Объемный стеклянный кристалл
-                    refracted = mix(refracted, vec3(1.0), 0.035);
-                    refracted += vec3(rimHighlight);
-                    refracted -= vec3(shadowRim);
-
-                    finalColor = mix(getScene(p), refracted, inGlassMask);
-                } else {
-                    finalColor = getScene(p);
-                }
-
-                gl_FragColor = vec4(finalColor, 1.0);
-            }
-        `;
-
-        function compile(type, src) {
-            const s = gl.createShader(type);
-            gl.shaderSource(s, src);
-            gl.compileShader(s);
-            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
-                console.error(gl.getShaderInfoLog(s));
-            }
-            return s;
+        const maxChange = this.maxSpeed * this.smoothTime;
+        const dist = Math.sqrt(changeX * changeX + changeY * changeY + changeZ * changeZ);
+        let cx = changeX, cy = changeY, cz = changeZ;
+        if (dist > maxChange && dist > 0.0001) {
+          const s = maxChange / dist;
+          cx *= s; cy *= s; cz *= s;
         }
 
-        const prog = gl.createProgram();
-        gl.attachShader(prog, compile(gl.VERTEX_SHADER, vsSource));
-        gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fsSource));
-        gl.linkProgram(prog);
+        const tempX = (this.velocity.x + omega * cx) * dt;
+        const tempY = (this.velocity.y + omega * cy) * dt;
+        const tempZ = (this.velocity.z + omega * cz) * dt;
 
-        const buf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-            -1,-1,  1,-1, -1, 1,
-            -1, 1,  1,-1,  1, 1
-        ]), gl.STATIC_DRAW);
+        this.velocity.x = (this.velocity.x - omega * tempX) * exp;
+        this.velocity.y = (this.velocity.y - omega * tempY) * exp;
+        this.velocity.z = (this.velocity.z - omega * tempZ) * exp;
 
-        const aPos = gl.getAttribLocation(prog, "a_pos");
-        const uRes = gl.getUniformLocation(prog, "u_resolution");
-        const uDpr = gl.getUniformLocation(prog, "u_dpr");
-        const uTime = gl.getUniformLocation(prog, "u_time");
-        const uSun = gl.getUniformLocation(prog, "u_sun");
-        const uCount = gl.getUniformLocation(prog, "u_count");
-        const uRects = gl.getUniformLocation(prog, "u_rects");
-        const uParams = gl.getUniformLocation(prog, "u_params");
+        const origX = this.target.x;
+        const origY = this.target.y;
+        const origZ = this.target.z;
 
-        let targetSunX = window.innerWidth * 0.45;
-        let targetSunY = window.innerHeight * 0.52;
-        let currentSunX = targetSunX;
-        let currentSunY = targetSunY;
+        let outX = origX + (cx + tempX) * exp;
+        let outY = origY + (cy + tempY) * exp;
+        let outZ = origZ + (cz + tempZ) * exp;
 
-        window.addEventListener('mousemove', e => {
-            targetSunX = e.clientX;
-            targetSunY = e.clientY;
+        if ((origX - this.current.x > 0) === (outX > origX)) { outX = origX; this.velocity.x = 0; }
+        if ((origY - this.current.y > 0) === (outY > origY)) { outY = origY; this.velocity.y = 0; }
+        if ((origZ - this.current.z > 0) === (outZ > origZ)) { outZ = origZ; this.velocity.z = 0; }
+
+        this.current.set(outX, outY, outZ);
+        return this.current;
+      }
+    }
+
+    class SmoothSpringFloat {
+      constructor(smoothTime = 0.4, maxSpeed = 40.0) {
+        this.current = 0;
+        this.target = 0;
+        this.velocity = 0;
+        this.smoothTime = smoothTime;
+        this.maxSpeed = maxSpeed;
+      }
+      reset(val) {
+        this.current = val;
+        this.target = val;
+        this.velocity = 0;
+      }
+      update(dt) {
+        const omega = 2.0 / Math.max(0.0001, this.smoothTime);
+        const x = omega * dt;
+        const exp = 1.0 / (1.0 + x + 0.48 * x * x + 0.235 * x * x * x);
+        let change = this.current - this.target;
+        const maxChange = this.maxSpeed * this.smoothTime;
+        change = THREE.MathUtils.clamp(change, -maxChange, maxChange);
+
+        const temp = (this.velocity + omega * change) * dt;
+        this.velocity = (this.velocity - omega * temp) * exp;
+        let out = this.target + (change + temp) * exp;
+
+        if ((this.target - this.current > 0) === (out > this.target)) {
+          out = this.target;
+          this.velocity = 0;
+        }
+        this.current = out;
+        return this.current;
+      }
+    }
+
+    /* ==========================================================
+       2. ЗВУКОВОЙ СИНТЕЗАТОР
+       ========================================================== */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+      playTone(freq, duration, type = 'sine', gainVal = 0.15) {
+        if (!this.enabled) return;
+        this.init();
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + duration);
+      }
+      move() { this.playTone(680, 0.035, 'triangle', 0.06); }
+      rotate() {
+        if (!this.enabled) return;
+        this.init();
+        this.playTone(920, 0.045, 'sine', 0.09);
+        setTimeout(() => this.playTone(1280, 0.045, 'sine', 0.07), 20);
+      }
+      hardDrop() {
+        if (!this.enabled) return;
+        this.init();
+        this.playTone(110, 0.18, 'triangle', 0.35);
+        this.playTone(280, 0.1, 'sine', 0.15);
+      }
+      playChronoExplosion() {
+        if (!this.enabled) return;
+        this.init();
+        const now = this.ctx.currentTime;
+
+        // Саб-басовый удар
+        const subOsc = this.ctx.createOscillator();
+        const subGain = this.ctx.createGain();
+        subOsc.type = 'sine';
+        subOsc.frequency.setValueAtTime(160, now);
+        subOsc.frequency.exponentialRampToValueAtTime(28, now + 1.4);
+        subGain.gain.setValueAtTime(0.7, now);
+        subGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        subOsc.connect(subGain);
+        subGain.connect(this.ctx.destination);
+        subOsc.start();
+        subOsc.stop(now + 1.5);
+
+        // Хрустальный перезвон спектра
+        const chimes = [587.33, 739.99, 880, 1174.66, 1479.98, 1760, 2093];
+        chimes.forEach((f, i) => {
+          setTimeout(() => {
+            this.playTone(f, 0.9, 'sine', 0.14);
+          }, i * 65);
         });
 
-        function resize() {
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-            gl.viewport(0, 0, canvas.width, canvas.height);
+        // Шумовой всплеск
+        const bufferSize = this.ctx.sampleRate * 0.4;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(1600, now);
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.22, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noise.start();
+      }
+      hold() { this.playTone(760, 0.08, 'sine', 0.12); }
+      gameOver() {
+        if (!this.enabled) return;
+        this.init();
+        [320, 260, 200, 140].forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 0.35, 'sawtooth', 0.15), i * 140);
+        });
+      }
+    }
+    const audio = new SoundEngine();
+
+    /* ==========================================================
+       3. РЕНДЕРЕР THREE.JS И ПОСТОБРАБОТКА (GTX 1060 60 FPS)
+       ========================================================== */
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 1.0;
+
+    let dispersionVal = 1.00;
+    let iorVal = 1.65;
+    let thicknessVal = 3.5;
+
+    const canvas = document.getElementById('webgl-canvas');
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance"
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.25;
+
+    const scene = new THREE.Scene();
+
+    const defaultFov = 48;
+    const camera = new THREE.PerspectiveCamera(defaultFov, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const defaultCamPos = new THREE.Vector3(0, 0, 26);
+    camera.position.copy(defaultCamPos);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 14;
+    controls.maxDistance = 44;
+    controls.maxPolarAngle = Math.PI * 0.78;
+    controls.minPolarAngle = Math.PI * 0.22;
+    controls.maxAzimuthAngle = Math.PI * 0.45;
+    controls.minAzimuthAngle = -Math.PI * 0.45;
+
+    // Пружинные объекты для камеры
+    const springCamPos = new SmoothSpringVec3(0.46, 65.0);
+    const springCamTarget = new SmoothSpringVec3(0.40, 65.0);
+    const springCamRoll = new SmoothSpringFloat(0.40, 10.0);
+    const springCamFov = new SmoothSpringFloat(0.40, 45.0);
+
+    // Конвейер постобработки
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.82, // Сила свечения
+      0.45, // Радиус
+      0.62  // Порог
+    );
+    composer.addPass(bloomPass);
+
+    // Кино-шейдер
+    const CinematicShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        uAberration: { value: 0.0035 },
+        uVignette: { value: 0.40 }
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
-        window.addEventListener('resize', resize);
-        resize();
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float uAberration;
+        uniform float uVignette;
+        varying vec2 vUv;
 
-        function render(time) {
-            gl.useProgram(prog);
+        void main() {
+          vec2 uv = vUv;
+          vec2 dist = uv - 0.5;
+          float r = length(dist);
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.enableVertexAttribArray(aPos);
-            gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+          float red   = texture2D(tDiffuse, uv - dist * (uAberration * 1.6 * r)).r;
+          float green = texture2D(tDiffuse, uv).g;
+          float blue  = texture2D(tDiffuse, uv + dist * (uAberration * 1.6 * r)).b;
+          vec3 col = vec3(red, green, blue);
 
-            const dpr = window.devicePixelRatio || 1;
-            currentSunX += (targetSunX - currentSunX) * 0.08;
-            currentSunY += (targetSunY - currentSunY) * 0.08;
+          // Виньетка
+          col *= 1.0 - smoothstep(0.35, 0.88, r) * uVignette;
 
-            gl.uniform2f(uRes, window.innerWidth, window.innerHeight);
-            gl.uniform1f(uDpr, dpr);
-            gl.uniform1f(uTime, time * 0.001);
-            gl.uniform2f(uSun, currentSunX, currentSunY);
+          // Легкое пленочное зерно
+          float noise = (fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.015;
+          col += noise;
 
-            const elements = document.querySelectorAll('.liquid-element');
-            const rects = [];
-            const params = [];
-            let count = 0;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `
+    };
+    const cinematicPass = new ShaderPass(CinematicShader);
+    composer.addPass(cinematicPass);
 
-            elements.forEach(el => {
-                if (count >= 12) return;
-                const r = el.getBoundingClientRect();
-                if (r.bottom < 0 || r.top > window.innerHeight) return;
+    // Студийный свет
+    scene.add(new THREE.AmbientLight(0xffffff, 0.95));
 
-                rects.push(r.left, r.top, r.width, r.height);
-                params.push(
-                    parseFloat(el.dataset.radius || 28),
-                    parseFloat(el.dataset.bevel || 22),
-                    parseFloat(el.dataset.ior || 16.0)
-                );
-                count++;
-            });
+    const lightKey = new THREE.DirectionalLight(0xffffff, 2.6);
+    lightKey.position.set(12, 18, 14);
+    scene.add(lightKey);
 
-            gl.uniform1i(uCount, count);
-            if (count > 0) {
-                gl.uniform4fv(uRects, new Float32Array(rects));
-                gl.uniform3fv(uParams, new Float32Array(params));
+    const lightCyan = new THREE.DirectionalLight(0x38bdf8, 2.2);
+    lightCyan.position.set(-16, -8, 12);
+    scene.add(lightCyan);
+
+    const lightMagenta = new THREE.PointLight(0xf43f5e, 2.8, 50);
+    lightMagenta.position.set(0, 16, -1);
+    scene.add(lightMagenta);
+
+    const activePieceLight = new THREE.PointLight(0x38bdf8, 1.8, 12);
+    scene.add(activePieceLight);
+
+    const explosionLight = new THREE.PointLight(0xffffff, 0, 35);
+    scene.add(explosionLight);
+
+    /* ==========================================================
+       4. ПОЛНОЭКРАННЫЙ СПОКОЙНЫЙ ФОН НА 360° (SPHERE SKYBOX)
+       ========================================================== */
+    const bgCanvas = document.getElementById('bg-canvas');
+    const bgCtx = bgCanvas.getContext('2d');
+    const bgTexture = new THREE.CanvasTexture(bgCanvas);
+    bgTexture.generateMipmaps = false;
+    bgTexture.minFilter = THREE.LinearFilter;
+    bgTexture.magFilter = THREE.LinearFilter;
+
+    const skyGeo = new THREE.SphereGeometry(75, 48, 32);
+    skyGeo.scale(-1, 1, 1);
+    const skyMat = new THREE.MeshBasicMaterial({ map: bgTexture, toneMapped: false });
+    const skyMesh = new THREE.Mesh(skyGeo, skyMat);
+    scene.add(skyMesh);
+
+    const envCanvas = document.createElement('canvas');
+    envCanvas.width = 512;
+    envCanvas.height = 256;
+    const eCtx = envCanvas.getContext('2d');
+    const eGrad = eCtx.createLinearGradient(0, 0, 512, 256);
+    eGrad.addColorStop(0, '#030616');
+    eGrad.addColorStop(0.5, '#120826');
+    eGrad.addColorStop(1, '#020a1c');
+    eCtx.fillStyle = eGrad;
+    eCtx.fillRect(0, 0, 512, 256);
+    eCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    eCtx.fillRect(80, 40, 60, 170);
+    eCtx.fillRect(360, 40, 70, 170);
+    const envTexture = new THREE.CanvasTexture(envCanvas);
+    envTexture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = envTexture;
+
+    function renderCalmBackground(timeSec) {
+      const w = bgCanvas.width;
+      const h = bgCanvas.height;
+
+      const bgGrad = bgCtx.createLinearGradient(0, 0, w, h);
+      bgGrad.addColorStop(0, '#010207');
+      bgGrad.addColorStop(0.35, '#040718');
+      bgGrad.addColorStop(0.7, '#0e0620');
+      bgGrad.addColorStop(1, '#01030b');
+      bgCtx.fillStyle = bgGrad;
+      bgCtx.fillRect(0, 0, w, h);
+
+      // Плавные волны жидкого сияния
+      const ribbons = [
+        { y: 0.35, amp: 130, freq: 0.0016, speed: 0.18, color: 'rgba(56, 189, 248, 0.16)', stroke: 'rgba(165, 243, 252, 0.45)' },
+        { y: 0.52, amp: 150, freq: 0.0013, speed: -0.15, color: 'rgba(192, 132, 252, 0.14)', stroke: 'rgba(232, 121, 249, 0.42)' },
+        { y: 0.68, amp: 120, freq: 0.0019, speed: 0.14, color: 'rgba(244, 63, 94, 0.12)', stroke: 'rgba(251, 146, 60, 0.38)' }
+      ];
+
+      ribbons.forEach(rib => {
+        bgCtx.save();
+        bgCtx.beginPath();
+        bgCtx.moveTo(0, h);
+        for (let x = 0; x <= w; x += 25) {
+          const wave = Math.sin(x * rib.freq + timeSec * rib.speed) * Math.cos(x * 0.0006 + timeSec * 0.1);
+          const y = h * rib.y + wave * rib.amp;
+          bgCtx.lineTo(x, y);
+        }
+        bgCtx.lineTo(w, h);
+        bgCtx.closePath();
+        bgCtx.fillStyle = rib.color;
+        bgCtx.fill();
+
+        bgCtx.beginPath();
+        for (let x = 0; x <= w; x += 15) {
+          const wave = Math.sin(x * rib.freq + timeSec * rib.speed) * Math.cos(x * 0.0006 + timeSec * 0.1);
+          const y = h * rib.y + wave * rib.amp;
+          if (x === 0) bgCtx.moveTo(x, y);
+          else bgCtx.lineTo(x, y);
+        }
+        bgCtx.strokeStyle = rib.stroke;
+        bgCtx.lineWidth = 2.2;
+        bgCtx.shadowColor = rib.stroke;
+        bgCtx.shadowBlur = 16;
+        bgCtx.stroke();
+        bgCtx.restore();
+      });
+
+      for (let i = 0; i < 8; i++) {
+        const bx = (w * 0.13 * (i + 1) + Math.sin(timeSec * 0.18 + i * 2) * 80) % w;
+        const by = h * 0.5 + Math.cos(timeSec * 0.16 + i * 1.5) * (h * 0.26);
+        const rad = 45 + Math.sin(timeSec * 0.3 + i) * 16;
+        const rg = bgCtx.createRadialGradient(bx, by, 0, bx, by, rad);
+        rg.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+        rg.addColorStop(0.4, i % 2 === 0 ? 'rgba(56, 189, 248, 0.18)' : 'rgba(244, 63, 94, 0.16)');
+        rg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        bgCtx.fillStyle = rg;
+        bgCtx.beginPath();
+        bgCtx.arc(bx, by, rad, 0, Math.PI * 2);
+        bgCtx.fill();
+      }
+
+      bgTexture.needsUpdate = true;
+    }
+
+    const motesCount = 65;
+    const motesGeo = new THREE.BufferGeometry();
+    const motesPos = new Float32Array(motesCount * 3);
+    for (let i = 0; i < motesCount * 3; i += 3) {
+      motesPos[i] = (Math.random() - 0.5) * 35;
+      motesPos[i+1] = (Math.random() - 0.5) * 35;
+      motesPos[i+2] = (Math.random() - 0.5) * 16;
+    }
+    motesGeo.setAttribute('position', new THREE.BufferAttribute(motesPos, 3));
+    const motesMat = new THREE.PointsMaterial({
+      color: 0xa5f3fc,
+      size: 0.18,
+      transparent: true,
+      opacity: 0.45,
+      blending: THREE.AdditiveBlending
+    });
+    const motesField = new THREE.Points(motesGeo, motesMat);
+    scene.add(motesField);
+
+    /* ==========================================================
+       5. КАРКАС И МАТЕРИАЛЫ LIQUID GLASS
+       ========================================================== */
+    const gridGroup = new THREE.Group();
+    const gridLineMat = new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.12
+    });
+    for (let c = 0; c <= COLS; c++) {
+      const x = (c - COLS / 2) * BLOCK_SIZE;
+      const points = [new THREE.Vector3(x, -ROWS / 2 * BLOCK_SIZE, -0.55), new THREE.Vector3(x, ROWS / 2 * BLOCK_SIZE, -0.55)];
+      gridGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), gridLineMat));
+    }
+    for (let r = 0; r <= ROWS; r++) {
+      const y = (r - ROWS / 2) * BLOCK_SIZE;
+      const points = [new THREE.Vector3(-COLS / 2 * BLOCK_SIZE, y, -0.55), new THREE.Vector3(COLS / 2 * BLOCK_SIZE, y, -0.55)];
+      gridGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), gridLineMat));
+    }
+    scene.add(gridGroup);
+
+    const frameMat = new THREE.MeshStandardMaterial({
+      color: 0x0c1224,
+      metalness: 0.9,
+      roughness: 0.1,
+      emissive: 0x38bdf8,
+      emissiveIntensity: 0.35
+    });
+    const sideRailGeo = new RoundedBoxGeometry(0.28, ROWS * BLOCK_SIZE + 0.4, 0.65, 3, 0.08);
+    const leftRail = new THREE.Mesh(sideRailGeo, frameMat);
+    leftRail.position.set(-COLS / 2 - 0.2, 0, 0);
+    scene.add(leftRail);
+
+    const rightRail = new THREE.Mesh(sideRailGeo, frameMat);
+    rightRail.position.set(COLS / 2 + 0.2, 0, 0);
+    scene.add(rightRail);
+
+    const bottomRailGeo = new RoundedBoxGeometry(COLS * BLOCK_SIZE + 0.76, 0.28, 0.65, 3, 0.08);
+    const bottomRail = new THREE.Mesh(bottomRailGeo, frameMat);
+    bottomRail.position.set(0, -ROWS / 2 - 0.2, 0);
+    scene.add(bottomRail);
+
+    const blockGeo = new RoundedBoxGeometry(0.92, 0.92, 0.92, 5, 0.18);
+    const blockEdgesGeo = new THREE.EdgesGeometry(blockGeo);
+
+    const TETROMINOES = {
+      I: { shape: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: 0x00f0ff, attenuation: 0x00d4ff },
+      O: { shape: [[1,1],[1,1]], color: 0xfacc15, attenuation: 0xeab308 },
+      T: { shape: [[0,1,0],[1,1,1],[0,0,0]], color: 0xd946ef, attenuation: 0xa855f7 },
+      S: { shape: [[0,1,1],[1,1,0],[0,0,0]], color: 0x10b981, attenuation: 0x059669 },
+      Z: { shape: [[1,1,0],[0,1,1],[0,0,0]], color: 0xf43f5e, attenuation: 0xe11d48 },
+      J: { shape: [[1,0,0],[1,1,1],[0,0,0]], color: 0x3b82f6, attenuation: 0x2563eb },
+      L: { shape: [[0,0,1],[1,1,1],[0,0,0]], color: 0xf97316, attenuation: 0xea580c }
+    };
+
+    const glassMaterials = {};
+    const edgeMaterials = {};
+
+    function buildLiquidGlassMaterial(colorHex, attHex) {
+      return new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(colorHex).lerp(new THREE.Color(0xffffff), 0.75),
+        transmission: 1.0,
+        opacity: 1.0,
+        transparent: false,
+        roughness: 0.012,
+        metalness: 0.0,
+        ior: iorVal,
+        dispersion: dispersionVal,
+        thickness: thicknessVal,
+        attenuationColor: new THREE.Color(attHex),
+        attenuationDistance: 1.6,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.01,
+        iridescence: 0.85,
+        iridescenceIOR: 1.5,
+        reflectivity: 0.98,
+        side: THREE.FrontSide
+      });
+    }
+
+    Object.keys(TETROMINOES).forEach(key => {
+      glassMaterials[key] = buildLiquidGlassMaterial(TETROMINOES[key].color, TETROMINOES[key].attenuation);
+      edgeMaterials[key] = new THREE.LineBasicMaterial({
+        color: new THREE.Color(TETROMINOES[key].color).multiplyScalar(1.5),
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending
+      });
+    });
+
+    const ghostMaterial = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.16,
+      roughness: 0.25,
+      metalness: 0.1,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.3
+    });
+    const ghostEdgeMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4 });
+
+    function createBlockMesh(type) {
+      const m = new THREE.Mesh(blockGeo, glassMaterials[type]);
+      const edge = new THREE.LineSegments(blockEdgesGeo, edgeMaterials[type]);
+      m.add(edge);
+      return m;
+    }
+
+    /* ==========================================================
+       6. 3D ПРЕВЬЮ NEXT И HOLD
+       ========================================================== */
+    const previewNextGroup = new THREE.Group();
+    previewNextGroup.position.set(8.5, 5.5, 0);
+    scene.add(previewNextGroup);
+
+    const previewHoldGroup = new THREE.Group();
+    previewHoldGroup.position.set(-8.5, 5.5, 0);
+    scene.add(previewHoldGroup);
+
+    function createPieceGroup(matrix, type) {
+      const g = new THREE.Group();
+      const n = matrix.length;
+      const off = (n - 1) / 2;
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (matrix[r][c]) {
+            const m = createBlockMesh(type);
+            m.position.set(c - off, off - r, 0);
+            g.add(m);
+          }
+        }
+      }
+      return g;
+    }
+
+    function updatePreview(group, type) {
+      while(group.children.length > 0) group.remove(group.children[0]);
+      if (type) group.add(createPieceGroup(TETROMINOES[type].shape, type));
+    }
+
+    /* ==========================================================
+       7. КИНЕМАТОГРАФИЧЕСКИЙ ПРОЛЕТ НА ПРУЖИНАХ (8.0 СЕКУНД)
+       ========================================================== */
+    let isCinematicActive = false;
+    let cinematicTimer = 0;
+    const cinematicDuration = 8.0;
+    let timeDilation = 1.0;
+
+    const savedPlayerCamPos = new THREE.Vector3();
+    const savedPlayerTarget = new THREE.Vector3();
+    let blastCenterY = 0;
+    let flyDirection = 1;
+
+    let shakeTrauma = 0;
+    const shakeOffset = new THREE.Vector3();
+
+    function triggerCinematicSequence(centerRowY, lineCount) {
+      isCinematicActive = true;
+      cinematicTimer = 0;
+      timeDilation = 0.22; // Замедление времени в 4.5 раза
+
+      savedPlayerCamPos.copy(camera.position);
+      savedPlayerTarget.copy(controls.target);
+      controls.enabled = false;
+
+      // Инициализация пружин строго из текущей позиции камеры
+      springCamPos.reset(camera.position);
+      springCamTarget.reset(controls.target);
+      springCamRoll.reset(0);
+      springCamFov.reset(camera.fov);
+
+      blastCenterY = (centerRowY - ROWS / 2 + 0.5) * BLOCK_SIZE;
+      flyDirection = Math.random() > 0.5 ? 1 : -1;
+
+      shakeTrauma = Math.min(1.0, 0.75 + lineCount * 0.15);
+      document.body.classList.add('cinematic-mode');
+
+      explosionLight.position.set(0, blastCenterY, 3);
+      explosionLight.color.setHex(0xffffff);
+      explosionLight.intensity = 5.0;
+    }
+
+    function updateCinematics(dt) {
+      if (!isCinematicActive) return;
+
+      cinematicTimer += dt;
+      const t = cinematicTimer;
+
+      // Сценарий 4 фаз кинематографического пролёта
+      if (t < 2.0) {
+        // ФАЗА 1: Резкое пикирование в эпицентр, Dutch angle, зум (FOV 32)
+        timeDilation = THREE.MathUtils.lerp(0.22, 0.35, t / 2.0);
+        springCamPos.target.set(flyDirection * 5.8, blastCenterY - 0.9, 6.4);
+        springCamTarget.target.set(0, blastCenterY, 0);
+        springCamRoll.target = flyDirection * 0.25;
+        springCamFov.target = 32;
+      } else if (t < 4.8) {
+        // ФАЗА 2: Замедленный спиральный облёт сквозь облако осколков
+        timeDilation = THREE.MathUtils.lerp(0.35, 0.65, (t - 2.0) / 2.8);
+        springCamPos.target.set(-flyDirection * 7.5, blastCenterY + 2.4, 9.8);
+        springCamTarget.target.set(0, blastCenterY + 0.4, 0);
+        springCamRoll.target = -flyDirection * 0.18;
+        springCamFov.target = 42;
+      } else if (t < 6.6) {
+        // ФАЗА 3: Плавный подъем на кране вверх, обзор сетки
+        timeDilation = THREE.MathUtils.lerp(0.65, 1.0, (t - 4.8) / 1.8);
+        springCamPos.target.set(flyDirection * 3.5, 9.5, 18.5);
+        springCamTarget.target.set(0, -1.2, 0);
+        springCamRoll.target = 0.0;
+        springCamFov.target = 48;
+      } else if (t < cinematicDuration) {
+        // ФАЗА 4: Мягкое пружинное возвращение к ракурсу игрока
+        timeDilation = 1.0;
+        springCamPos.target.copy(savedPlayerCamPos);
+        springCamTarget.target.copy(savedPlayerTarget);
+        springCamRoll.target = 0.0;
+        springCamFov.target = defaultFov;
+      } else {
+        // Завершение кино-режима: 100% безопасная передача управления OrbitControls
+        isCinematicActive = false;
+        camera.position.copy(savedPlayerCamPos);
+        controls.target.copy(savedPlayerTarget);
+        camera.up.set(0, 1, 0);
+        camera.fov = defaultFov;
+        camera.updateProjectionMatrix();
+        controls.enabled = true;
+        controls.update();
+        document.body.classList.remove('cinematic-mode');
+
+        if (!isGameOver) spawnPiece();
+        return;
+      }
+
+      // Обновление пружин
+      const curPos = springCamPos.update(dt);
+      const curLook = springCamTarget.update(dt);
+      const curRoll = springCamRoll.update(dt);
+      const curFov = springCamFov.update(dt);
+
+      camera.position.copy(curPos);
+      camera.up.set(Math.sin(curRoll), Math.cos(curRoll), 0);
+      camera.lookAt(curLook);
+      camera.fov = curFov;
+      camera.updateProjectionMatrix();
+
+      explosionLight.intensity = Math.max(0, explosionLight.intensity - dt * 2.5);
+    }
+
+    function applyScreenShake(dt) {
+      if (shakeTrauma > 0) {
+        const shake = Math.pow(shakeTrauma, 2) * 0.95;
+        shakeOffset.set(
+          (Math.random() - 0.5) * shake,
+          (Math.random() - 0.5) * shake,
+          (Math.random() - 0.5) * shake
+        );
+        camera.position.add(shakeOffset);
+        shakeTrauma = Math.max(0, shakeTrauma - dt * 1.6);
+      }
+    }
+
+    /* ==========================================================
+       8. ВЗРЫВ, ИСКРЫ И КАПЛИ ЖИДКОГО СТЕКЛА
+       ========================================================== */
+    const fxParticles = [];
+    const shockwaves = [];
+
+    const sparkGeo = new THREE.SphereGeometry(0.09, 6, 6);
+    const dropletGeo = new THREE.DodecahedronGeometry(0.18, 1);
+    const ringGeo = new THREE.RingGeometry(0.2, 0.85, 48);
+
+    function createExplosionFX(yPos, colorHex, lineCount) {
+      for (let k = 0; k < 2; k++) {
+        const ringMat = new THREE.MeshBasicMaterial({
+          color: k === 0 ? 0xffffff : colorHex,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending
+        });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(0, yPos, 0.2 + k * 0.1);
+        ring.rotation.x = Math.PI * 0.06;
+        scene.add(ring);
+        shockwaves.push({ mesh: ring, radius: 0.2, speed: 20 - k * 4, opacity: 1.0 });
+      }
+
+      const sparkCount = 110 * lineCount;
+      for (let i = 0; i < sparkCount; i++) {
+        const sparkMat = new THREE.MeshBasicMaterial({
+          color: (i % 3 === 0) ? 0xffffff : colorHex,
+          transparent: true,
+          opacity: 1.0,
+          blending: THREE.AdditiveBlending
+        });
+        const m = new THREE.Mesh(sparkGeo, sparkMat);
+        m.position.set((Math.random() - 0.5) * 8.5, yPos + (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 0.8);
+
+        const speed = 6 + Math.random() * 18;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = (Math.random() - 0.5) * Math.PI;
+
+        fxParticles.push({
+          mesh: m,
+          vel: new THREE.Vector3(
+            Math.cos(theta) * Math.cos(phi) * speed,
+            Math.sin(phi) * speed + 2.5,
+            Math.sin(theta) * Math.cos(phi) * speed + 2.5
+          ),
+          drag: 0.96,
+          life: 4.5 + Math.random() * 2.5,
+          maxLife: 7.0
+        });
+        scene.add(m);
+      }
+
+      const dropCount = 28 * lineCount;
+      for (let i = 0; i < dropCount; i++) {
+        const dropMat = new THREE.MeshPhysicalMaterial({
+          color: colorHex,
+          transmission: 0.98,
+          roughness: 0.02,
+          ior: 1.62,
+          dispersion: 0.95,
+          thickness: 1.8
+        });
+        const d = new THREE.Mesh(dropletGeo, dropMat);
+        d.position.set((Math.random() - 0.5) * 8.5, yPos, 0);
+
+        fxParticles.push({
+          mesh: d,
+          vel: new THREE.Vector3((Math.random() - 0.5) * 11, Math.random() * 8 + 3, (Math.random() - 0.5) * 8),
+          rotVel: new THREE.Vector3(Math.random() * 8, Math.random() * 8, Math.random() * 8),
+          drag: 0.98,
+          isDroplet: true,
+          life: 5.5,
+          maxLife: 5.5
+        });
+        scene.add(d);
+      }
+    }
+
+    function updateFX(simDt) {
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.radius += simDt * sw.speed;
+        sw.opacity -= simDt * 0.85;
+        sw.mesh.scale.setScalar(sw.radius);
+        sw.mesh.material.opacity = Math.max(0, sw.opacity);
+
+        if (sw.opacity <= 0) {
+          scene.remove(sw.mesh);
+          sw.mesh.geometry.dispose();
+          sw.mesh.material.dispose();
+          shockwaves.splice(i, 1);
+        }
+      }
+
+      for (let i = fxParticles.length - 1; i >= 0; i--) {
+        const p = fxParticles[i];
+        p.life -= simDt;
+        p.vel.y -= 9.8 * simDt;
+        p.vel.multiplyScalar(Math.pow(p.drag, simDt * 60));
+        p.mesh.position.addScaledVector(p.vel, simDt);
+
+        if (p.isDroplet) {
+          p.mesh.rotation.x += p.rotVel.x * simDt;
+          p.mesh.rotation.y += p.rotVel.y * simDt;
+        }
+
+        const scale = Math.max(0.01, p.life / p.maxLife);
+        p.mesh.scale.setScalar(scale);
+
+        if (p.life <= 0) {
+          scene.remove(p.mesh);
+          p.mesh.geometry.dispose();
+          p.mesh.material.dispose();
+          fxParticles.splice(i, 1);
+        }
+      }
+    }
+
+    /* ==========================================================
+       9. ИГРОВОЙ ДВИЖОК ТЕТРИСА
+       ========================================================== */
+    let grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    const boardGroup = new THREE.Group();
+    scene.add(boardGroup);
+
+    let bag = [];
+    function getNextPieceType() {
+      if (bag.length === 0) {
+        bag = Object.keys(TETROMINOES);
+        for (let i = bag.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [bag[i], bag[j]] = [bag[j], bag[i]];
+        }
+      }
+      return bag.pop();
+    }
+
+    let score = 0;
+    let lines = 0;
+    let level = 1;
+    let isGameOver = false;
+    let isPaused = false;
+
+    let currentPiece = null;
+    const currentPieceGroup = new THREE.Group();
+    scene.add(currentPieceGroup);
+
+    const ghostGroup = new THREE.Group();
+    scene.add(ghostGroup);
+
+    let nextPieceType = getNextPieceType();
+    let holdPieceType = null;
+    let canHold = true;
+
+    let dropTimer = 0;
+    let dropInterval = 800;
+
+    function spawnPiece() {
+      const type = nextPieceType;
+      nextPieceType = getNextPieceType();
+      updatePreview(previewNextGroup, nextPieceType);
+
+      const matrix = TETROMINOES[type].shape.map(r => [...r]);
+      const px = Math.floor((COLS - matrix[0].length) / 2);
+      const py = ROWS - 1;
+
+      currentPiece = { type, matrix, x: px, y: py };
+      canHold = true;
+
+      activePieceLight.color.setHex(TETROMINOES[type].color);
+
+      if (checkCollision(matrix, px, py)) {
+        gameOver();
+        return;
+      }
+      updateCurrentVisuals();
+    }
+
+    function checkCollision(matrix, px, py) {
+      for (let r = 0; r < matrix.length; r++) {
+        for (let c = 0; c < matrix[r].length; c++) {
+          if (matrix[r][c]) {
+            const gx = px + c;
+            const gy = py - r;
+            if (gx < 0 || gx >= COLS || gy < 0) return true;
+            if (gy < ROWS && grid[gy][gx] !== null) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function rotateMatrix(matrix) {
+      const n = matrix.length;
+      const res = Array.from({ length: n }, () => Array(n).fill(0));
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) res[c][n - 1 - r] = matrix[r][c];
+      }
+      return res;
+    }
+
+    function getGhostY() {
+      if (!currentPiece) return 0;
+      let gy = currentPiece.y;
+      while (!checkCollision(currentPiece.matrix, currentPiece.x, gy - 1)) gy--;
+      return gy;
+    }
+
+    function updateCurrentVisuals() {
+      while(currentPieceGroup.children.length > 0) currentPieceGroup.remove(currentPieceGroup.children[0]);
+      while(ghostGroup.children.length > 0) ghostGroup.remove(ghostGroup.children[0]);
+      if (!currentPiece || isGameOver) return;
+
+      const mat = currentPiece.matrix;
+      const gy = getGhostY();
+
+      let avgX = 0, avgY = 0, count = 0;
+
+      for (let r = 0; r < mat.length; r++) {
+        for (let c = 0; c < mat[r].length; c++) {
+          if (mat[r][c]) {
+            const posX = (currentPiece.x + c - COLS / 2 + 0.5) * BLOCK_SIZE;
+            const posY = (currentPiece.y - r - ROWS / 2 + 0.5) * BLOCK_SIZE;
+
+            const b = createBlockMesh(currentPiece.type);
+            b.position.set(posX, posY, 0);
+            currentPieceGroup.add(b);
+
+            const gb = new THREE.Mesh(blockGeo, ghostMaterial);
+            gb.add(new THREE.LineSegments(blockEdgesGeo, ghostEdgeMat));
+            gb.position.set(posX, (gy - r - ROWS / 2 + 0.5) * BLOCK_SIZE, 0);
+            ghostGroup.add(gb);
+
+            avgX += posX;
+            avgY += posY;
+            count++;
+          }
+        }
+      }
+
+      if (count > 0) {
+        activePieceLight.position.set(avgX / count, avgY / count, 1.5);
+      }
+    }
+
+    function moveLeft() {
+      if (!currentPiece || isGameOver || isPaused || isCinematicActive) return;
+      if (!checkCollision(currentPiece.matrix, currentPiece.x - 1, currentPiece.y)) {
+        currentPiece.x--;
+        audio.move();
+        updateCurrentVisuals();
+      }
+    }
+    function moveRight() {
+      if (!currentPiece || isGameOver || isPaused || isCinematicActive) return;
+      if (!checkCollision(currentPiece.matrix, currentPiece.x + 1, currentPiece.y)) {
+        currentPiece.x++;
+        audio.move();
+        updateCurrentVisuals();
+      }
+    }
+    function rotate() {
+      if (!currentPiece || isGameOver || isPaused || isCinematicActive) return;
+      const rot = rotateMatrix(currentPiece.matrix);
+      const kicks = [0, 1, -1, 2, -2];
+      for (let ox of kicks) {
+        if (!checkCollision(rot, currentPiece.x + ox, currentPiece.y)) {
+          currentPiece.matrix = rot;
+          currentPiece.x += ox;
+          audio.rotate();
+          updateCurrentVisuals();
+          return;
+        }
+      }
+    }
+    function softDrop() {
+      if (!currentPiece || isGameOver || isPaused || isCinematicActive) return;
+      if (!checkCollision(currentPiece.matrix, currentPiece.x, currentPiece.y - 1)) {
+        currentPiece.y--;
+        score += 1;
+        updateStats();
+        audio.move();
+        updateCurrentVisuals();
+      } else {
+        lockPiece();
+      }
+    }
+    function hardDrop() {
+      if (!currentPiece || isGameOver || isPaused || isCinematicActive) return;
+      const targetY = getGhostY();
+      score += (currentPiece.y - targetY) * 2;
+      currentPiece.y = targetY;
+      audio.hardDrop();
+      lockPiece();
+    }
+
+    function holdAction() {
+      if (!currentPiece || !canHold || isGameOver || isPaused || isCinematicActive) return;
+      audio.hold();
+      const curType = currentPiece.type;
+      if (holdPieceType === null) {
+        holdPieceType = curType;
+        spawnPiece();
+      } else {
+        const swap = holdPieceType;
+        holdPieceType = curType;
+        currentPiece = {
+          type: swap,
+          matrix: TETROMINOES[swap].shape.map(r => [...r]),
+          x: Math.floor((COLS - TETROMINOES[swap].shape[0].length) / 2),
+          y: ROWS - 1
+        };
+        activePieceLight.color.setHex(TETROMINOES[swap].color);
+        updateCurrentVisuals();
+      }
+      canHold = false;
+      updatePreview(previewHoldGroup, holdPieceType);
+    }
+
+    function lockPiece() {
+      const mat = currentPiece.matrix;
+      for (let r = 0; r < mat.length; r++) {
+        for (let c = 0; c < mat[r].length; c++) {
+          if (mat[r][c]) {
+            const gx = currentPiece.x + c;
+            const gy = currentPiece.y - r;
+            if (gy >= 0 && gy < ROWS) {
+              const mesh = createBlockMesh(currentPiece.type);
+              mesh.position.set((gx - COLS / 2 + 0.5) * BLOCK_SIZE, (gy - ROWS / 2 + 0.5) * BLOCK_SIZE, 0);
+              boardGroup.add(mesh);
+              grid[gy][gx] = { type: currentPiece.type, mesh };
             }
-
-            gl.drawArrays(gl.TRIANGLES, 0, 6);
-            requestAnimationFrame(render);
+          }
         }
-        requestAnimationFrame(render);
-    </script>
+      }
+      currentPiece = null;
+      updateCurrentVisuals();
+      checkLines();
+    }
+
+    function checkLines() {
+      const fullRows = [];
+      for (let r = 0; r < ROWS; r++) {
+        if (grid[r].every(c => c !== null)) fullRows.push(r);
+      }
+
+      if (fullRows.length === 0) {
+        spawnPiece();
+        return;
+      }
+
+      const avgY = fullRows.reduce((a, b) => a + b, 0) / fullRows.length;
+      const blastWorldY = (avgY - ROWS / 2 + 0.5) * BLOCK_SIZE;
+
+      triggerCinematicSequence(avgY, fullRows.length);
+
+      audio.playChronoExplosion();
+      const expColor = TETROMINOES[grid[fullRows[0]][0].type].color;
+      createExplosionFX(blastWorldY, expColor, fullRows.length);
+
+      fullRows.forEach(r => {
+        for (let c = 0; c < COLS; c++) {
+          const item = grid[r][c];
+          if (item) {
+            boardGroup.remove(item.mesh);
+            item.mesh.geometry.dispose();
+          }
+        }
+      });
+
+      let newGrid = grid.filter((_, idx) => !fullRows.includes(idx));
+      while (newGrid.length < ROWS) newGrid.push(Array(COLS).fill(null));
+      grid = newGrid;
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (grid[r][c]) {
+            grid[r][c].mesh.position.y = (r - ROWS / 2 + 0.5) * BLOCK_SIZE;
+          }
+        }
+      }
+
+      const baseScores = [100, 300, 700, 1200];
+      score += baseScores[fullRows.length - 1] * level;
+      lines += fullRows.length;
+      level = Math.floor(lines / 10) + 1;
+      dropInterval = Math.max(90, 800 - (level - 1) * 65);
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('score-el').innerText = score;
+      document.getElementById('lines-el').innerText = lines;
+      document.getElementById('level-el').innerText = level;
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      audio.gameOver();
+      document.getElementById('final-score-val').innerText = score;
+      document.getElementById('gameover-modal').style.display = 'flex';
+    }
+
+    function resetGame() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (grid[r][c]) boardGroup.remove(grid[r][c].mesh);
+        }
+      }
+      grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+      score = 0; lines = 0; level = 1; dropInterval = 800;
+      isGameOver = false; isCinematicActive = false;
+      holdPieceType = null;
+      camera.position.copy(defaultCamPos);
+      controls.target.set(0, 0, 0);
+      controls.enabled = true;
+      document.body.classList.remove('cinematic-mode');
+      updateStats();
+      updatePreview(previewHoldGroup, null);
+      document.getElementById('gameover-modal').style.display = 'none';
+      spawnPiece();
+    }
+
+    /* ==========================================================
+       10. ВВОД И ОПТИКА
+       ========================================================== */
+    window.addEventListener('keydown', e => {
+      if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        isPaused = !isPaused;
+        return;
+      }
+      if (isGameOver || isPaused) return;
+
+      switch (e.code) {
+        case 'ArrowLeft': case 'KeyA': moveLeft(); break;
+        case 'ArrowRight': case 'KeyD': moveRight(); break;
+        case 'ArrowUp': case 'KeyW': case 'KeyX': rotate(); break;
+        case 'ArrowDown': case 'KeyS': softDrop(); break;
+        case 'Space': hardDrop(); break;
+        case 'KeyC': case 'ShiftLeft': case 'ShiftRight': holdAction(); break;
+      }
+    });
+
+    const bindM = (id, fn) => {
+      document.getElementById(id).addEventListener('pointerdown', e => {
+        e.stopPropagation();
+        fn();
+      });
+    };
+    bindM('m-left', moveLeft);
+    bindM('m-right', moveRight);
+    bindM('m-rot', rotate);
+    bindM('m-down', softDrop);
+    bindM('m-drop', hardDrop);
+    bindM('m-hold', holdAction);
+
+    function updateGlassMaterials() {
+      Object.values(glassMaterials).forEach(m => {
+        m.dispersion = dispersionVal;
+        m.ior = iorVal;
+        m.thickness = thicknessVal;
+        m.needsUpdate = true;
+      });
+    }
+
+    document.getElementById('dispersion-slider').addEventListener('input', e => {
+      dispersionVal = parseFloat(e.target.value);
+      document.getElementById('disp-val').innerText = dispersionVal.toFixed(2);
+      updateGlassMaterials();
+    });
+    document.getElementById('ior-slider').addEventListener('input', e => {
+      iorVal = parseFloat(e.target.value);
+      document.getElementById('ior-val').innerText = iorVal.toFixed(2);
+      updateGlassMaterials();
+    });
+    document.getElementById('thick-slider').addEventListener('input', e => {
+      thicknessVal = parseFloat(e.target.value);
+      document.getElementById('thick-val').innerText = thicknessVal.toFixed(1);
+      updateGlassMaterials();
+    });
+
+    document.getElementById('reset-cam-btn').addEventListener('click', () => {
+      camera.position.copy(defaultCamPos);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    });
+
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    soundBtn.addEventListener('click', () => {
+      audio.enabled = !audio.enabled;
+      soundBtn.innerText = audio.enabled ? 'ЗВУК: ВКЛ' : 'ЗВУК: ВЫКЛ';
+    });
+
+    document.getElementById('restart-btn').addEventListener('click', resetGame);
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      if (camera.aspect < 1) camera.position.z = 26 / camera.aspect;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      composer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    /* ==========================================================
+       11. ГЛАВНЫЙ ИГРОВОЙ ЦИКЛ (СТАБИЛЬНЫЕ 60 FPS)
+       ========================================================== */
+    const clock = new THREE.Clock();
+    spawnPiece();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = Math.min(clock.getDelta(), 0.05);
+      const time = performance.now() * 0.001;
+
+      renderCalmBackground(time);
+      motesField.rotation.y = time * 0.025;
+
+      if (!isGameOver && !isPaused && !isCinematicActive && currentPiece) {
+        dropTimer += delta * 1000;
+        if (dropTimer >= dropInterval) {
+          dropTimer = 0;
+          if (!checkCollision(currentPiece.matrix, currentPiece.x, currentPiece.y - 1)) {
+            currentPiece.y--;
+            updateCurrentVisuals();
+          } else {
+            lockPiece();
+          }
+        }
+      }
+
+      const spin = delta * 1.2;
+      previewNextGroup.rotation.y += spin;
+      previewNextGroup.rotation.x = Math.sin(time * 1.5) * 0.2;
+      previewHoldGroup.rotation.y += spin;
+      previewHoldGroup.rotation.x = Math.sin(time * 1.5) * 0.2;
+
+      const simDt = delta * timeDilation;
+      updateFX(simDt);
+
+      if (isCinematicActive) {
+        updateCinematics(delta);
+      } else {
+        controls.update();
+      }
+      applyScreenShake(delta);
+
+      composer.render();
+    }
+
+    animate();
+  </script>
 </body>
 </html>
